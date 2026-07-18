@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard – Fleet Safety</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Chart.js for the Analytics Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            background-color: #f0f2f5;
+        }
+
+        /* ---- Navbar ---- */
+        .app-navbar {
+            background: #1a1a2e;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* ---- Stat Cards ---- */
+        .stat-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            transition: transform 0.15s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        .stat-icon {
+            font-size: 2rem;
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+        }
+        .stat-value {
+            font-size: 1.9rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* ---- Section Cards ---- */
+        .section-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            margin-bottom: 24px;
+        }
+        .section-card .card-header {
+            background: #fff;
+            border-bottom: 1px solid #f0f0f0;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 1rem 1.25rem;
+        }
+
+        /* ---- Analytics / Chart Cards ---- */
+        .chart-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            background: #fff;
+            padding: 1.25rem;
+            height: 100%;
+        }
+        .chart-card h6 {
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+        .chart-wrapper {
+            position: relative;
+            /* Limit chart height so it doesn't grow too tall */
+            height: 260px;
+        }
+
+        /* ---- Search & Filter Bar ---- */
+        .filter-bar {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            padding: 1rem 1.25rem;
+            margin-bottom: 24px;
+        }
+        .filter-bar .form-control,
+        .filter-bar .form-select {
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            font-size: 0.9rem;
+        }
+        .filter-bar .form-control:focus,
+        .filter-bar .form-select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+        }
+        #no-results-msg {
+            display: none;
+            text-align: center;
+            color: #adb5bd;
+            padding: 2rem;
+            font-size: 0.95rem;
+        }
+
+        /* ---- Accordion (Client list) ---- */
+        .client-accordion .accordion-item {
+            border-left: none;
+            border-right: none;
+            border-radius: 0 !important;
+        }
+        .client-accordion .accordion-item:first-child {
+            border-top: none;
+        }
+        .client-accordion .accordion-button {
+            background: #fff;
+            font-weight: 600;
+            color: #1a1a2e;
+            padding: 1rem 1.25rem;
+            box-shadow: none !important;
+        }
+        .client-accordion .accordion-button:not(.collapsed) {
+            background: #f5f8ff;
+            color: #0d6efd;
+        }
+        .client-accordion .accordion-button::after {
+            flex-shrink: 0;
+        }
+
+        /* ---- Status Badges ---- */
+        .badge-valid    { background-color: #198754; color: #fff; }
+        .badge-expiring { background-color: #fd7e14; color: #fff; }
+        .badge-expired  { background-color: #dc3545; color: #fff; }
+        .badge-unknown  { background-color: #adb5bd; color: #fff; }
+
+        /* ---- Document Type Badge ---- */
+        .badge-doctype {
+            background-color: #e9ecef;
+            color: #495057;
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+
+        /* ---- Uploads Table ---- */
+        .uploads-table th {
+            background: #f8f9fa;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6c757d;
+            font-weight: 600;
+            border-top: none;
+            padding: 0.6rem 1rem;
+        }
+        .uploads-table td {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+            font-size: 0.9rem;
+        }
+        .uploads-table .filename-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ---- Client meta bar ---- */
+        .client-meta-bar {
+            background: #f8f9fa;
+            border-bottom: 1px solid #f0f0f0;
+            padding: 0.5rem 1.25rem;
+            font-size: 0.85rem;
+        }
+
+        /* ---- Empty state ---- */
+        .empty-state {
+            padding: 3rem 1rem;
+            color: #adb5bd;
+            text-align: center;
+        }
+        .empty-state .empty-icon {
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================================
+     NAVBAR
+     ============================================================ -->
+<nav class="navbar app-navbar px-3 py-2 mb-4">
+    <a class="navbar-brand text-white fw-bold d-flex align-items-center gap-2" href="/admin">
+        🚚 <span>Fleet Safety</span>
+        <span class="badge bg-secondary fw-normal fs-6 ms-1">Admin</span>
+    </a>
+    <div class="d-flex align-items-center gap-3">
+        <span class="text-white-50 small d-none d-sm-inline">
+            <i class="bi bi-person-circle me-1"></i>{{ admin_username }}
+        </span>
+        <a href="/admin/logout" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1">
+            <i class="bi bi-box-arrow-right"></i> Logout
+        </a>
+    </div>
+</nav>
+
+<div class="container-lg pb-5">
+
+    <!-- ============================================================
+         STATS ROW
+         ============================================================ -->
+    <div class="row g-3 mb-4">
+
+        <!-- Total Clients -->
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat-icon bg-primary bg-opacity-10">
+                        <i class="bi bi-buildings text-primary" style="font-size:1.4rem;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value text-dark">{{ stats.total_clients }}</div>
+                        <div class="stat-label">Total Clients</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Documents -->
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat-icon bg-success bg-opacity-10">
+                        <i class="bi bi-file-earmark-text text-success" style="font-size:1.4rem;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value text-dark">{{ stats.total_docs }}</div>
+                        <div class="stat-label">Total Documents</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expiring Soon -->
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat-icon bg-warning bg-opacity-10">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size:1.4rem;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value {% if stats.expiring_soon > 0 %}text-warning{% else %}text-dark{% endif %}">
+                            {{ stats.expiring_soon }}
+                        </div>
+                        <div class="stat-label">Expiring &lt;30 Days</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expired -->
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat-icon bg-danger bg-opacity-10">
+                        <i class="bi bi-x-octagon text-danger" style="font-size:1.4rem;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value {% if stats.expired > 0 %}text-danger{% else %}text-dark{% endif %}">
+                            {{ stats.expired }}
+                        </div>
+                        <div class="stat-label">Expired</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+         ANALYTICS DASHBOARD (Chart.js)
+         ============================================================ -->
+    {% if stats.total_docs > 0 %}
+    <div class="row g-3 mb-4">
+
+        <!-- Pie Chart: Compliance Status -->
+        <div class="col-md-5">
+            <div class="chart-card">
+                <h6><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Compliance Status</h6>
+                <div class="chart-wrapper">
+                    <canvas id="compliancePieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bar Chart: Document Types -->
+        <div class="col-md-7">
+            <div class="chart-card">
+                <h6><i class="bi bi-bar-chart-fill me-2 text-primary"></i>Documents by Type</h6>
+                <div class="chart-wrapper">
+                    <canvas id="docTypeBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    {% endif %}
+
+    <!-- ============================================================
+         CREATE NEW CLIENT
+         ============================================================ -->
+    <div class="card section-card">
+        <div class="card-header d-flex align-items-center gap-2">
+            <i class="bi bi-person-plus text-primary"></i>
+            <h6 class="mb-0 fw-semibold">Add New Client</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="/admin" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small" for="company_name">
+                        Company Name <span class="text-danger">*</span>
+                    </label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="company_name"
+                        name="company_name"
+                        placeholder="e.g. Smith Trucking LLC"
+                        required
+                    >
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small" for="phone_number">
+                        Phone <span class="text-muted fw-normal">(SMS alerts)</span>
+                    </label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="phone_number"
+                        name="phone_number"
+                        placeholder="+12125551234"
+                    >
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small" for="email">
+                        Email <span class="text-muted fw-normal">(email alerts)</span>
+                    </label>
+                    <input
+                        type="email"
+                        class="form-control"
+                        id="email"
+                        name="email"
+                        placeholder="contact@company.com"
+                    >
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-link-45deg"></i> Generate Link
+                    </button>
+                </div>
+            </form>
+
+            {% if error %}
+            <div class="alert alert-warning d-flex align-items-center gap-2 mt-3 mb-0">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                {{ error }}
+            </div>
+            {% endif %}
+
+            {% if magic_link %}
+            <div class="alert alert-success mt-3 mb-0">
+                <div class="fw-semibold mb-1">
+                    <i class="bi bi-check-circle-fill me-1"></i> Client created! Send this link:
+                </div>
+                <a href="{{ magic_link }}" target="_blank" class="text-break small">{{ magic_link }}</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SEARCH & FILTER BAR
+         ============================================================ -->
+    {% if clients_data %}
+    <div class="filter-bar d-flex flex-wrap gap-3 align-items-center">
+        <i class="bi bi-funnel text-muted"></i>
+
+        <!-- Search by client name -->
+        <div class="flex-grow-1" style="min-width: 200px;">
+            <input
+                type="text"
+                id="searchInput"
+                class="form-control"
+                placeholder="🔍  Search by client name..."
+                autocomplete="off"
+            >
+        </div>
+
+        <!-- Filter by document type -->
+        <div style="min-width: 200px;">
+            <select id="docTypeFilter" class="form-select">
+                <option value="">All Document Types</option>
+                {% for dt in ['Medical Card', "Driver's License", 'Annual Review', 'Other'] %}
+                <option value="{{ dt }}">{{ dt }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Reset button -->
+        <button class="btn btn-sm btn-outline-secondary" id="resetFilters">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+        </button>
+
+        <!-- Result counter -->
+        <span class="text-muted small ms-auto" id="filterCount"></span>
+    </div>
+    {% endif %}
+
+    <!-- ============================================================
+         CLIENTS & DOCUMENTS
+         ============================================================ -->
+    <div class="card section-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-truck text-primary"></i>
+                <h6 class="mb-0 fw-semibold">Clients &amp; Documents</h6>
+            </div>
+            <span class="badge bg-light text-secondary border">
+                {{ stats.total_clients }} client{% if stats.total_clients != 1 %}s{% endif %}
+            </span>
+        </div>
+
+        {% if clients_data %}
+        <div id="no-results-msg" class="p-4 text-center text-muted">
+            <i class="bi bi-search" style="font-size: 2rem;"></i>
+            <p class="mt-2 mb-0">No clients match your search.</p>
+        </div>
+
+        <div class="accordion accordion-flush client-accordion" id="clientAccordion">
+
+            {% for item in clients_data %}
+            {% set client = item.client %}
+            {% set uploads = item.uploads %}
+
+            <!--
+                data-company-name: used by the search box JS filter
+                We store the list of document types in a data attribute so the
+                doc-type filter can show/hide entire clients with no matching docs.
+            -->
+            <div
+                class="accordion-item client-row"
+                data-company-name="{{ client['company_name']|lower }}"
+                data-doc-types="{{ uploads | map(attribute='upload') | map(attribute='document_type') | select | list | join(',') | lower }}"
+            >
+
+                <!-- Accordion Header -->
+                <h2 class="accordion-header" id="heading-{{ loop.index }}">
+                    <button
+                        class="accordion-button {% if not loop.first %}collapsed{% endif %}"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#collapse-{{ loop.index }}"
+                        aria-expanded="{{ 'true' if loop.first else 'false' }}"
+                        aria-controls="collapse-{{ loop.index }}"
+                    >
+                        <div class="d-flex align-items-center w-100 me-2 gap-3">
+
+                            <!-- Company initial avatar -->
+                            <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center fw-bold text-primary"
+                                 style="width:36px; height:36px; flex-shrink:0; font-size:1rem;">
+                                {{ client['company_name'][0].upper() }}
+                            </div>
+
+                            <div class="flex-grow-1">
+                                <!-- The <mark> tag is injected by JS when highlighting search terms -->
+                                <div class="fw-semibold client-name-display">{{ client['company_name'] }}</div>
+                                <div class="small text-muted fw-normal">
+                                    <i class="bi bi-telephone me-1"></i>
+                                    {{ client['phone_number'] or 'No phone on file' }}
+                                    {% if client['email'] %}
+                                    &nbsp;&bull;&nbsp;
+                                    <i class="bi bi-envelope me-1"></i>{{ client['email'] }}
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Doc count badge -->
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 fw-semibold"
+                                  style="font-size:0.78rem;">
+                                <i class="bi bi-file-earmark me-1"></i>
+                                {{ item.upload_count }} doc{% if item.upload_count != 1 %}s{% endif %}
+                            </span>
+
+                        </div>
+                    </button>
+                </h2>
+
+                <!-- Accordion Body -->
+                <div
+                    id="collapse-{{ loop.index }}"
+                    class="accordion-collapse collapse {% if loop.first %}show{% endif %}"
+                >
+                    <!-- Client meta bar -->
+                    <div class="client-meta-bar d-flex align-items-center gap-3 flex-wrap">
+                        <div class="d-flex align-items-center gap-2 text-muted">
+                            <i class="bi bi-link"></i>
+                            <span>Upload link:</span>
+                            <a href="/upload/{{ client['uuid'] }}" target="_blank" class="text-primary small">
+                                /upload/{{ client['uuid'][:8] }}...
+                            </a>
+                        </div>
+                        <div class="ms-auto">
+                            <form
+                                method="POST"
+                                action="/admin/delete/{{ client['uuid'] }}"
+                                onsubmit="return confirm('Delete this client and ALL their documents? This cannot be undone.');"
+                                class="d-inline"
+                            >
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash3"></i> Delete Client
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Documents table -->
+                    {% if uploads %}
+                    <div class="table-responsive">
+                        <table class="table table-hover uploads-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Driver Name</th>
+                                    <th>Document Type</th>
+                                    <th>File</th>
+                                    <th>Expiration Date</th>
+                                    <th>Status</th>
+                                    <th>Uploaded</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in uploads %}
+                                {% set u = row.upload %}
+                                {% set status = row.status %}
+                                <!--
+                                    data-doc-type on each row lets the JS filter
+                                    hide individual rows by document type.
+                                -->
+                                <tr class="doc-row" data-doc-type="{{ u['document_type']|lower if u['document_type'] else '' }}">
+
+                                    <!-- Driver Name -->
+                                    <td>
+                                        {% if u['driver_name'] %}
+                                            <span class="fw-semibold">{{ u['driver_name'] }}</span>
+                                        {% else %}
+                                            <span class="text-muted fst-italic">Not extracted</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Document Type -->
+                                    <td>
+                                        {% if u['document_type'] %}
+                                            <span class="badge badge-doctype">
+                                                {{ u['document_type'] }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Filename -->
+                                    <td class="filename-cell" title="{{ u['filename'] }}">
+                                        <i class="bi bi-file-earmark-text text-secondary me-1"></i>
+                                        {{ u['filename'] }}
+                                    </td>
+
+                                    <!-- Expiration Date -->
+                                    <td>
+                                        {% if u['expiration_date'] %}
+                                            {{ u['expiration_date'] }}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Status Badge -->
+                                    <td>
+                                        {% if status == 'valid' %}
+                                            <span class="badge badge-valid">
+                                                <i class="bi bi-check-circle me-1"></i>Valid
+                                            </span>
+                                        {% elif status == 'expiring' %}
+                                            <span class="badge badge-expiring">
+                                                <i class="bi bi-exclamation-circle me-1"></i>Expiring Soon
+                                            </span>
+                                        {% elif status == 'expired' %}
+                                            <span class="badge badge-expired">
+                                                <i class="bi bi-x-circle me-1"></i>Expired
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-unknown">Unknown</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Uploaded At -->
+                                    <td class="text-muted small">
+                                        {{ u['uploaded_at'][:10] if u['uploaded_at'] else '—' }}
+                                    </td>
+
+                                    <!-- View Document -->
+                                    <td>
+                                        <a
+                                            href="/admin/uploads/{{ u['filename'] }}"
+                                            target="_blank"
+                                            class="btn btn-sm btn-outline-primary"
+                                        >
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Empty rows message (shown by JS when doc-type filter hides all rows) -->
+                    <div class="no-rows-msg text-center text-muted small py-3" style="display:none;">
+                        No documents match the selected filter for this client.
+                    </div>
+
+                    {% else %}
+                    <div class="empty-state">
+                        <span class="empty-icon">📭</span>
+                        <p class="mb-0 small">No documents uploaded yet.</p>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">🏢</span>
+            <p class="fw-semibold mb-1">No clients yet</p>
+            <p class="small text-muted mb-0">Add your first client using the form above.</p>
+        </div>
+        {% endif %}
+
+    </div>
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- ============================================================
+     CHART.JS — Analytics Dashboard
+     chart_data is passed from Flask as a JSON object.
+     ============================================================ -->
+<script>
+    // Inject server-side data into JavaScript safely using Jinja's tojson filter.
+    const chartData = {{ chart_data | tojson }};
+
+    // ----------------------------------------------------------
+    // 1. PIE CHART — Compliance Status
+    // ----------------------------------------------------------
+    const pieCtx = document.getElementById('compliancePieChart');
+    if (pieCtx) {
+        new Chart(pieCtx, {
+            type: 'doughnut',  // Doughnut looks cleaner than a plain pie
+            data: {
+                labels: chartData.compliance_labels,
+                datasets: [{
+                    data: chartData.compliance_data,
+                    backgroundColor: [
+                        '#198754',  // Valid   → green
+                        '#fd7e14',  // Expiring → orange
+                        '#dc3545',  // Expired  → red
+                        '#adb5bd',  // Unknown  → grey
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 16,
+                            font: { size: 12 },
+                            usePointStyle: true,
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            // Show both count and percentage in the tooltip
+                            label: function(ctx) {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total > 0 ? Math.round((ctx.raw / total) * 100) : 0;
+                                return ` ${ctx.label}: ${ctx.raw} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ----------------------------------------------------------
+    // 2. BAR CHART — Document Types
+    // ----------------------------------------------------------
+    const barCtx = document.getElementById('docTypeBarChart');
+    if (barCtx) {
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.doctype_labels,
+                datasets: [{
+                    label: 'Documents',
+                    data: chartData.doctype_data,
+                    backgroundColor: [
+                        'rgba(13, 110, 253, 0.75)',   // primary blue
+                        'rgba(102, 16, 242, 0.75)',   // purple
+                        'rgba(32, 201, 151, 0.75)',   // teal
+                        'rgba(253, 126, 20, 0.75)',   // orange
+                    ],
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return ` ${ctx.raw} document${ctx.raw !== 1 ? 's' : ''}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            precision: 0,
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                    },
+                    x: {
+                        grid: { display: false },
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+<!-- ============================================================
+     SEARCH & FILTER — Live JavaScript Filtering
+     ============================================================ -->
+<script>
+    (function () {
+        const searchInput   = document.getElementById('searchInput');
+        const docTypeFilter = document.getElementById('docTypeFilter');
+        const resetBtn      = document.getElementById('resetFilters');
+        const filterCount   = document.getElementById('filterCount');
+        const noResultsMsg  = document.getElementById('no-results-msg');
+
+        // All accordion items (one per client)
+        const clientRows    = document.querySelectorAll('.client-row');
+
+        if (!searchInput) return;  // Guard: no clients on page
+
+        /**
+         * applyFilters()
+         * Runs on every keypress/change. It:
+         * 1. Gets the current search term and selected doc type.
+         * 2. For each client accordion item:
+         *    a. Checks if the company name matches the search term.
+         *    b. Filters individual doc rows by the selected document type.
+         *    c. Hides the client entirely if the name doesn't match OR
+         *       if the doc-type filter leaves zero visible rows.
+         * 3. Updates the result counter and the "no results" message.
+         */
+        function applyFilters() {
+            const term     = searchInput.value.trim().toLowerCase();
+            const docType  = docTypeFilter.value.toLowerCase();
+            let visibleCount = 0;
+
+            clientRows.forEach(function (row) {
+                const companyName = row.dataset.companyName || '';
+
+                // --- Step 1: Check company name against search term ---
+                const nameMatch = companyName.includes(term);
+
+                // --- Step 2: Filter document rows by type ---
+                const docRows = row.querySelectorAll('.doc-row');
+                let visibleDocRows = 0;
+
+                if (docRows.length > 0) {
+                    docRows.forEach(function (docRow) {
+                        const rowType = docRow.dataset.docType || '';
+                        const typeMatch = !docType || rowType === docType;
+                        docRow.style.display = typeMatch ? '' : 'none';
+                        if (typeMatch) visibleDocRows++;
+                    });
+
+                    // Show/hide the "no documents match filter" message inside this client
+                    const noRowsMsg = row.querySelector('.no-rows-msg');
+                    if (noRowsMsg) {
+                        noRowsMsg.style.display = (docType && visibleDocRows === 0) ? 'block' : 'none';
+                    }
+                }
+
+                // --- Step 3: Hide the whole client if name doesn't match,
+                //              OR if a doc-type filter is active and zero rows match ---
+                const hideClient = !nameMatch || (docType && docRows.length > 0 && visibleDocRows === 0);
+                row.style.display = hideClient ? 'none' : '';
+
+                if (!hideClient) visibleCount++;
+            });
+
+            // Update the counter label
+            if (filterCount) {
+                filterCount.textContent = `${visibleCount} of ${clientRows.length} client${clientRows.length !== 1 ? 's' : ''}`;
+            }
+
+            // Show/hide global "no results" message
+            if (noResultsMsg) {
+                noResultsMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+        }
+
+        // Attach event listeners
+        searchInput.addEventListener('input', applyFilters);
+        docTypeFilter.addEventListener('change', applyFilters);
+
+        resetBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            docTypeFilter.value = '';
+            applyFilters();
+            searchInput.focus();
+        });
+
+        // Run once on page load to set the counter
+        applyFilters();
+    })();
+</script>
+
+</body>
+</html>
