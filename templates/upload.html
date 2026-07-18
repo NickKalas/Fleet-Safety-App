@@ -133,6 +133,18 @@
                                             <span id="scanBtnText">Scan Document</span>
                                         </button>
                                     </div>
+
+                                    <!--
+                                        Legal consent disclaimer — sits directly under the submit
+                                        button, inside the form, so it's visible before the user
+                                        clicks. Links open the public /tos and /privacy pages in a
+                                        new tab so the user doesn't lose their in-progress upload.
+                                    -->
+                                    <small class="text-muted d-block mt-3 text-center">
+                                        By uploading your document you consent to our
+                                        <a href="https://fleetsafety.pythonanywhere.com/tos" target="_blank" rel="noopener">TOS</a> and
+                                        <a href="https://fleetsafety.pythonanywhere.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+                                    </small>
                                 </form>
                             </div>
                         </div>
