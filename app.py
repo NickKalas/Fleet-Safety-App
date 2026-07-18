@@ -163,97 +163,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
-
-@app.route('/admin', methods=['GET', 'POST'])
-@login_required
-def admin():
-    """
-    Main admin dashboard.
-    GET:  Show all clients with their uploaded documents, stats, and charts.
-    POST: Create a new client and safely redirect to prevent duplicate submissions on refresh.
-    """
-    error = None
-    db = get_db()
-
-    if request.method == 'POST':
-        company_name = request.form.get('company_name', '').strip()
-        phone_number = request.form.get('phone_number', '').strip()
-        email = request.form.get('email', '').strip()
-
-        if not company_name:
-            error = "Company name is required."
-        else:
-            client_uuid = str(uuid.uuid4())
-            db.execute(
-                'INSERT INTO clients (uuid, company_name, phone_number, email) VALUES (?, ?, ?, ?)',
-                (client_uuid, company_name, phone_number or None, email or None)
-            )
-            db.commit()
-            
-            # Post/Redirect/Get Pattern: Redirect to self with the new UUID in the query string
-            return redirect(url_for('admin', created_uuid=client_uuid))
-
-    # Catch if a client was just created right before the redirect
-    magic_link = None
-    created_uuid = request.args.get('created_uuid')
-    if created_uuid:
-        # Verify it exists just to be safe, then build the link
-        client_check = db.execute('SELECT 1 FROM clients WHERE uuid = ?', (created_uuid,)).fetchone()
-        if client_check:
-            magic_link = url_for('upload_file', client_uuid=created_uuid, _external=True)
-
-    clients = db.execute('SELECT * FROM clients ORDER BY company_name').fetchall()
-
-    total_docs = 0
-    expiring_soon_count = 0
-    expired_count = 0
-    clients_data = []
-
-    for client in clients:
-        uploads = db.execute(
-            '''SELECT * FROM uploads
-               WHERE client_uuid = ?
-               ORDER BY uploaded_at DESC''',
-            (client['uuid'],)
-        ).fetchall()
-
-        total_docs += len(uploads)
-
-        uploads_with_status = []
-        for u in uploads:
-            status = get_expiry_status(u['expiration_date'])
-            if status == 'expiring':
-                expiring_soon_count += 1
-            elif status == 'expired':
-                expired_count += 1
-            uploads_with_status.append({'upload': u, 'status': status})
-
-        clients_data.append({
-            'client': client,
-            'uploads': uploads_with_status,
-            'upload_count': len(uploads),
-        })
-
-    stats = {
-        'total_clients': len(clients),
-        'total_docs': total_docs,
-        'expiring_soon': expiring_soon_count,
-        'expired': expired_count,
-    }
-
-    # Build data for the Chart.js analytics dashboard
-    chart_data = build_chart_data(clients_data)
-
-    return render_template(
-        'admin.html',
-        magic_link=magic_link,
-        clients_data=clients_data,
-        error=error,
-        stats=stats,
-        chart_data=chart_data,
-        admin_username=session.get('admin_username', 'Admin'),
-    )
-
 @app.route('/admin/logout')
 def admin_logout():
     """Clears the server-side session and redirects to login."""
@@ -534,9 +443,12 @@ def admin():
     """
     Main admin dashboard.
     GET:  Show all clients with their uploaded documents, stats, and charts.
-    POST: Create a new client and generate their magic upload link.
+    POST: Create a new client, then redirect back to this page as a GET
+          request (the Post/Redirect/Get pattern). Without this, hitting
+          refresh after creating a client would re-submit the same POST
+          and silently insert a duplicate client — this redirect is what
+          stops that.
     """
-    magic_link = None
     error = None
     db = get_db()
 
@@ -554,7 +466,19 @@ def admin():
                 (client_uuid, company_name, phone_number or None, email or None)
             )
             db.commit()
-            magic_link = url_for('upload_file', client_uuid=client_uuid, _external=True)
+            # Redirect to a fresh GET instead of rendering the template here.
+            # The new client's uuid is passed along so we can look up their
+            # magic link on the GET side below. This is what stops the
+            # duplicate-client bug: refreshing after a redirect just re-runs
+            # the GET, not the POST that inserted the row.
+            return redirect(url_for('admin', created_uuid=client_uuid))
+
+    # If we just redirected here after creating a client, look up their
+    # magic link so it can still be shown on the page.
+    magic_link = None
+    created_uuid = request.args.get('created_uuid')
+    if created_uuid:
+        magic_link = url_for('upload_file', client_uuid=created_uuid, _external=True)
 
     clients = db.execute('SELECT * FROM clients ORDER BY company_name').fetchall()
 
