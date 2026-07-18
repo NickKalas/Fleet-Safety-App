@@ -10,6 +10,7 @@ from flask_session import Session
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from groq import Groq
+from twilio.twiml.messaging_response import MessagingResponse
 import pdfplumber
 import docx
 
@@ -444,6 +445,26 @@ def index():
     return redirect(url_for('admin'))
 
 
+# ==============================================================
+# PUBLIC LEGAL PAGES (Privacy Policy / Terms of Service)
+# Required for Twilio Toll-Free Verification. These are public,
+# unauthenticated routes — no @login_required here on purpose,
+# since Twilio's reviewers and end users need to be able to view
+# them without an admin account.
+# ==============================================================
+
+@app.route('/privacy')
+def privacy_policy():
+    """Public Privacy Policy page."""
+    return render_template('privacy.html')
+
+
+@app.route('/tos')
+def terms_of_service():
+    """Public Terms of Service page."""
+    return render_template('tos.html')
+
+
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
 def admin():
@@ -756,12 +777,47 @@ def confirm_document(client_uuid):
     )
     db.commit()
 
-    print(f"  ✅ Saved to database — {safe_filename} for client {client_uuid}")
+    print(f"  ✅ Saved to database — {safe_filename} for client {client['company_name']}.")
 
     return jsonify(
         success=True,
         message=f'"{safe_filename}" has been saved for {client["company_name"]}.'
     )
+
+
+# ==============================================================
+# TWILIO SMS WEBHOOK (Toll-Free Verification: HELP / STOP handling)
+# ==============================================================
+
+@app.route('/webhook/sms', methods=['POST'])
+def sms_webhook():
+    """
+    Twilio calls this URL every time someone replies to your toll-free
+    number. Required by Twilio's Toll-Free Verification for any number
+    that sends SMS alerts.
+
+    - "HELP"                  → sends back support contact info.
+    - "STOP" / "UNSUBSCRIBE"  → sends back an opt-out confirmation.
+      (Twilio itself blocks future sends to that number automatically;
+      this just sends the required confirmation text.)
+    - Anything else           → no reply (empty TwiML response).
+    """
+    incoming_msg = request.values.get('Body', '').strip().upper()
+
+    response = MessagingResponse()
+
+    if incoming_msg == 'HELP':
+        response.message(
+            "Fleet Safety Alerts: Need help? Email tryfleetsafety@gmail.com "
+            "or visit our site. Reply STOP to cancel."
+        )
+    elif incoming_msg in ('STOP', 'UNSUBSCRIBE'):
+        response.message(
+            "You have been unsubscribed from Fleet Safety Alerts. "
+            "You will not receive any more messages."
+        )
+
+    return str(response)
 
 
 # --- Start the Server ---

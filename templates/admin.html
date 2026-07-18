@@ -373,6 +373,23 @@
                 </div>
             </form>
 
+            <!--
+                COMPLIANCE NOTICE — Twilio Toll-Free Verification requires proof
+                that SMS consent is captured off-platform (verbal/written) before
+                a client is entered here, since this form has no consent checkbox
+                of its own. This alert is the admin-facing certification step, and
+                it links out to the public /tos and /privacy pages Twilio reviewers
+                can also access without logging in.
+            -->
+            <div class="alert alert-info d-flex align-items-start gap-2 mt-3 mb-0" role="alert">
+                <i class="bi bi-info-circle-fill mt-1"></i>
+                <div>
+                    <strong>Compliance Notice:</strong> By adding this client, you certify that you have obtained explicit written or verbal consent from the client to receive automated SMS alerts regarding DOT document expirations. Message &amp; data rates may apply. View our public
+                    <a href="/tos" target="_blank" rel="noopener">Terms of Service</a> and
+                    <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+                </div>
+            </div>
+
             {% if error %}
             <div class="alert alert-warning d-flex align-items-center gap-2 mt-3 mb-0">
                 <i class="bi bi-exclamation-triangle-fill"></i>
