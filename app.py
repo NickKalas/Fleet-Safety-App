@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import sqlite3
 import json
@@ -6,12 +7,14 @@ import base64
 import time
 import hmac
 import secrets
+import zipfile
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 from functools import wraps
 from flask import Flask, request, render_template, redirect, url_for, g, session, send_from_directory, jsonify
 from flask_session import Session
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 from groq import Groq
 from twilio.twiml.messaging_response import MessagingResponse
@@ -26,6 +29,13 @@ load_dotenv()
 
 # --- App Configuration ---
 app = Flask(__name__)
+
+# FIX: in production this app sits behind a TLS-terminating proxy. ProxyFix
+# restores the real scheme/host/client IP from the X-Forwarded-* headers so:
+#   1. Twilio signature validation sees the https:// URL Twilio actually
+#      signed (otherwise every STOP webhook is rejected with a 403), and
+#   2. request.remote_addr is the real client IP for the login lockout.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -125,6 +135,21 @@ def check_csrf():
     return bool(real) and hmac.compare_digest(sent, real)
 
 
+def normalize_phone(raw):
+    """
+    FIX: Twilio's webhook sends numbers in E.164 format (+15551234567). If we
+    store '555-123-4567', a STOP reply matches zero rows and the client keeps
+    getting texts — a TCPA violation. Normalize every number to E.164 at the
+    door. Returns None for empty or invalid input.
+    """
+    digits = re.sub(r'\D', '', raw or '')
+    if len(digits) == 10:
+        return '+1' + digits
+    if len(digits) == 11 and digits.startswith('1'):
+        return '+' + digits
+    return None
+
+
 # ==============================================================
 # DATABASE HELPERS
 # ==============================================================
@@ -153,10 +178,16 @@ def init_db():
     """
     Creates our database tables if they don't exist.
     Also runs migrations: adds new columns to old databases without losing data.
-    """
-    db = sqlite3.connect(DATABASE)
 
-    db.executescript('''
+    FIX: multiple gunicorn workers all run this at boot. If two race on the
+    ALTER TABLEs ("duplicate column" / "database is locked"), the loser must
+    continue instead of crashing the worker.
+    """
+    db = sqlite3.connect(DATABASE, timeout=15)
+    db.execute('PRAGMA busy_timeout=15000')
+
+    try:
+        db.executescript('''
         CREATE TABLE IF NOT EXISTS clients (
             uuid          TEXT PRIMARY KEY,
             company_name  TEXT NOT NULL,
@@ -186,24 +217,37 @@ def init_db():
         );
     ''')
 
-    # --- Migrations for older databases ---
-    client_cols = [row[1] for row in db.execute('PRAGMA table_info(clients)').fetchall()]
-    if 'email' not in client_cols:
-        db.execute('ALTER TABLE clients ADD COLUMN email TEXT')
-    if 'sms_opted_out' not in client_cols:
-        db.execute('ALTER TABLE clients ADD COLUMN sms_opted_out INTEGER DEFAULT 0')
+        # --- Migrations for older databases ---
+        client_cols = [row[1] for row in db.execute('PRAGMA table_info(clients)').fetchall()]
+        if 'email' not in client_cols:
+            db.execute('ALTER TABLE clients ADD COLUMN email TEXT')
+        if 'sms_opted_out' not in client_cols:
+            db.execute('ALTER TABLE clients ADD COLUMN sms_opted_out INTEGER DEFAULT 0')
 
-    upload_cols = [row[1] for row in db.execute('PRAGMA table_info(uploads)').fetchall()]
-    if 'driver_name' not in upload_cols:
-        db.execute('ALTER TABLE uploads ADD COLUMN driver_name TEXT')
-    if 'expiration_date' not in upload_cols:
-        db.execute('ALTER TABLE uploads ADD COLUMN expiration_date TEXT')
-    if 'document_type' not in upload_cols:
-        db.execute('ALTER TABLE uploads ADD COLUMN document_type TEXT')
+        upload_cols = [row[1] for row in db.execute('PRAGMA table_info(uploads)').fetchall()]
+        if 'driver_name' not in upload_cols:
+            db.execute('ALTER TABLE uploads ADD COLUMN driver_name TEXT')
+        if 'expiration_date' not in upload_cols:
+            db.execute('ALTER TABLE uploads ADD COLUMN expiration_date TEXT')
+        if 'document_type' not in upload_cols:
+            db.execute('ALTER TABLE uploads ADD COLUMN document_type TEXT')
 
-    db.commit()
-    db.close()
-    print("Database initialized successfully.")
+        # FIX: one-time normalization of legacy phone numbers to E.164 so
+        # webhook opt-outs (which match on the exact number) can find them.
+        for row in db.execute(
+            'SELECT uuid, phone_number FROM clients WHERE phone_number IS NOT NULL'
+        ).fetchall():
+            norm = normalize_phone(row[1])
+            if norm and norm != row[1]:
+                db.execute('UPDATE clients SET phone_number = ? WHERE uuid = ?', (norm, row[0]))
+
+        db.commit()
+        print("Database initialized successfully.")
+    except sqlite3.OperationalError as e:
+        # Another worker won the migration race — safe to continue booting.
+        print(f"init_db: skipped ({e})")
+    finally:
+        db.close()
 
 
 init_db()
@@ -258,11 +302,18 @@ def admin_login():
 
     error = None
     if request.method == 'POST':
-        ip = request.headers.get('X-Real-IP', request.remote_addr or 'unknown')
+        # FIX: use request.remote_addr (real IP via ProxyFix) instead of the
+        # client-spoofable X-Real-IP header, which allowed both a lockout
+        # bypass and unbounded growth of this dict. Prune stale entries so
+        # it can't become a memory leak either way.
+        ip = request.remote_addr or 'unknown'
+        now = time.time()
+        for stale in [k for k, (n, t) in _FAILED_LOGINS.items() if now - t > _LOCKOUT_SECONDS]:
+            _FAILED_LOGINS.pop(stale, None)
         fails, last = _FAILED_LOGINS.get(ip, (0, 0))
 
         # Locked out from too many wrong guesses?
-        if fails >= _MAX_ATTEMPTS and (time.time() - last) < _LOCKOUT_SECONDS:
+        if fails >= _MAX_ATTEMPTS and (now - last) < _LOCKOUT_SECONDS:
             error = "Too many failed attempts. Please wait 5 minutes and try again."
         elif not check_csrf():
             error = "Your session expired. Please try again."
@@ -273,8 +324,11 @@ def admin_login():
             # compare_digest = constant-time compare, which prevents a
             # "timing attack" where an attacker measures response speed
             # to guess the password one character at a time.
-            user_ok = hmac.compare_digest(username, ADMIN_USERNAME)
-            pass_ok = hmac.compare_digest(password, ADMIN_PASSWORD)
+            # FIX: compare bytes, not str — compare_digest raises TypeError
+            # on non-ASCII strings, so one accented character in the form
+            # used to crash the worker with a 500.
+            user_ok = hmac.compare_digest(username.encode('utf-8'), ADMIN_USERNAME.encode('utf-8'))
+            pass_ok = hmac.compare_digest(password.encode('utf-8'), ADMIN_PASSWORD.encode('utf-8'))
 
             if user_ok and pass_ok:
                 # Wipe any existing session data BEFORE marking as logged in.
@@ -410,9 +464,26 @@ def extract_document_data(file_path, filename, document_type=None):
             raw_json_string = _ask_groq_with_text(full_text, document_type)
 
         elif extension == 'docx':
+            # FIX: a .docx is a zip archive — a 10 MB upload can decompress
+            # to gigabytes of XML (zip bomb) and OOM-kill the worker. Check
+            # the uncompressed size before parsing, and stop collecting text
+            # at 6000 chars since that's all we send to the AI anyway.
+            try:
+                with zipfile.ZipFile(file_path) as z:
+                    if sum(i.file_size for i in z.infolist()) > 50 * 1024 * 1024:
+                        print(f"  DOCX rejected: decompresses too large ({filename})")
+                        return None, None
+            except zipfile.BadZipFile:
+                print(f"  DOCX rejected: not a valid zip archive ({filename})")
+                return None, None
             document = docx.Document(file_path)
-            text = '\n'.join(para.text for para in document.paragraphs)
-            raw_json_string = _ask_groq_with_text(text, document_type)
+            parts, total = [], 0
+            for para in document.paragraphs:
+                parts.append(para.text)
+                total += len(para.text)
+                if total > 6000:
+                    break
+            raw_json_string = _ask_groq_with_text('\n'.join(parts), document_type)
 
         else:
             print(f"  Unsupported file type: {extension}")
@@ -509,7 +580,7 @@ def build_chart_data(clients_data):
 
 @app.route('/')
 def index():
-    return redirect(url_for('admin'))
+    return render_template('pricing.html')
 
 
 # --- Public legal pages (no login: Twilio reviewers must reach these) ---
@@ -522,6 +593,9 @@ def privacy_policy():
 def terms_of_service():
     return render_template('tos.html')
 
+@app.route('/home')
+def pricing():
+    return render_template('pricing.html')
 
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
@@ -534,16 +608,19 @@ def admin():
             error = "Your session expired. Please try again."
         else:
             company_name = request.form.get('company_name', '').strip()
-            phone_number = request.form.get('phone_number', '').strip()
+            raw_phone = request.form.get('phone_number', '').strip()
             email = request.form.get('email', '').strip()
+            phone_number = normalize_phone(raw_phone)   # FIX: store E.164 only
 
             if not company_name:
                 error = "Company name is required."
+            elif raw_phone and phone_number is None:
+                error = "Phone number must be a valid 10-digit US number (e.g. 555-123-4567)."
             else:
                 client_uuid = str(uuid.uuid4())
                 db.execute(
                     'INSERT INTO clients (uuid, company_name, phone_number, email) VALUES (?, ?, ?, ?)',
-                    (client_uuid, company_name, phone_number or None, email or None)
+                    (client_uuid, company_name, phone_number, email or None)
                 )
                 db.commit()
                 return redirect(url_for('admin', created_uuid=client_uuid))
@@ -616,10 +693,77 @@ def delete_client(client_uuid):
         if os.path.exists(file_path):
             os.remove(file_path)
 
+    # FIX: remove the alert history too, or alert_log fills with orphan rows.
+    db.execute(
+        'DELETE FROM alert_log WHERE upload_id IN '
+        '(SELECT id FROM uploads WHERE client_uuid = ?)',
+        (client_uuid,)
+    )
     db.execute('DELETE FROM uploads WHERE client_uuid = ?', (client_uuid,))
     db.execute('DELETE FROM clients WHERE uuid = ?', (client_uuid,))
     db.commit()
     return redirect(url_for('admin'))
+
+
+@app.route('/admin/reset-link/<client_uuid>', methods=['POST'])
+@login_required
+def reset_link(client_uuid):
+    """
+    FIX: magic links never expired, so a leaked link granted permanent access
+    to a client's documents. This rotates the client's uuid — the old link
+    stops working immediately — and re-tags their stored files to the new
+    uuid so the ownership check (filename prefix) still passes.
+    """
+    if not check_csrf():
+        return "Invalid CSRF token.", 400
+
+    db = get_db()
+    client = db.execute('SELECT * FROM clients WHERE uuid = ?', (client_uuid,)).fetchone()
+    if client is None:
+        return redirect(url_for('admin'))
+
+    new_uuid = str(uuid.uuid4())
+    uploads = db.execute(
+        'SELECT id, filename FROM uploads WHERE client_uuid = ?', (client_uuid,)
+    ).fetchall()
+
+    renames = []
+    for u in uploads:
+        old_name = u['filename']
+        if old_name.startswith(client_uuid + '_'):
+            new_name = new_uuid + old_name[len(client_uuid):]
+        else:
+            new_name = old_name
+        renames.append((u['id'], old_name, new_name))
+
+    # Rename on disk first; if any rename fails, undo the ones already done
+    # so disk and database never disagree about a filename.
+    done = []
+    try:
+        for _id, old_name, new_name in renames:
+            if old_name != new_name:
+                old_path = os.path.join(app.config['UPLOAD_FOLDER'], old_name)
+                new_path = os.path.join(app.config['UPLOAD_FOLDER'], new_name)
+                if os.path.exists(old_path):
+                    os.rename(old_path, new_path)
+                    done.append((old_path, new_path))
+    except OSError as e:
+        print(f"reset_link: rename failed, rolling back ({e})")
+        for old_path, new_path in reversed(done):
+            try:
+                os.rename(new_path, old_path)
+            except OSError:
+                pass
+        return redirect(url_for('admin'))
+
+    for _id, old_name, new_name in renames:
+        db.execute(
+            'UPDATE uploads SET filename = ?, client_uuid = ? WHERE id = ?',
+            (new_name, new_uuid, _id)
+        )
+    db.execute('UPDATE clients SET uuid = ? WHERE uuid = ?', (new_uuid, client_uuid))
+    db.commit()
+    return redirect(url_for('admin', created_uuid=new_uuid))
 
 
 @app.route('/upload/<client_uuid>', methods=['GET'])
@@ -648,12 +792,33 @@ def _client_owns_file(client_uuid, safe_filename):
     return safe_filename.startswith(client_uuid + '_')
 
 
+# FIX: per-client throttle on /scan. Each scan writes up to 10 MB to disk and
+# fires a paid AI call that can hold a worker for up to ~60s, so an unmetered
+# magic link is a disk-fill + API-cost + worker-exhaustion DoS.
+_SCAN_HITS = {}          # client_uuid -> [timestamps of recent scans]
+_SCAN_LIMIT = 20         # scans allowed per client...
+_SCAN_WINDOW = 3600      # ...per hour
+
+
+def scan_rate_limited(client_uuid):
+    now = time.time()
+    hits = [t for t in _SCAN_HITS.get(client_uuid, []) if now - t < _SCAN_WINDOW]
+    limited = len(hits) >= _SCAN_LIMIT
+    if not limited:
+        hits.append(now)
+    _SCAN_HITS[client_uuid] = hits
+    return limited
+
+
 @app.route('/upload/<client_uuid>/scan', methods=['POST'])
 def scan_document(client_uuid):
     db = get_db()
     client = db.execute('SELECT * FROM clients WHERE uuid = ?', (client_uuid,)).fetchone()
     if client is None:
         return jsonify(success=False, error='Invalid or expired upload link.'), 404
+
+    if scan_rate_limited(client_uuid):
+        return jsonify(success=False, error='Too many scans. Please wait a few minutes and try again.'), 429
 
     document_type = request.form.get('document_type', '').strip()
     file = request.files.get('file')
@@ -802,7 +967,11 @@ _OPT_IN = {'START', 'YES', 'UNSTOP'}
 @app.route('/webhook/sms', methods=['POST'])
 def sms_webhook():
     # Verify Twilio's signature so random people can't hit this endpoint.
+    # FIX: an empty auth token would make the signature forgeable (HMAC with
+    # a publicly-known empty key), so refuse to serve without one.
     auth_token = os.getenv('TWILIO_AUTH_TOKEN', '')
+    if not auth_token:
+        return '', 503
     validator = RequestValidator(auth_token)
     signature = request.headers.get('X-Twilio-Signature', '')
     if not validator.validate(request.url, request.form, signature):
@@ -836,7 +1005,7 @@ def sms_webhook():
             "Msg & data rates may apply. Reply STOP to cancel."
         )
 
-    return str(response)
+    return str(response), 200, {'Content-Type': 'application/xml'}
 
 
 # --- Start the Server ---

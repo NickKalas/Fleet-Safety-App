@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — Fleet Safety</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1a1a2e;
+    --bg: #f0f2f5;
+    --accent: #4361ee;
+  }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg);
+    color: #2b2d42;
+  }
+
+  /* Navbar */
+  .navbar-fleet {
+    background-color: var(--navy);
+  }
+  .navbar-fleet .navbar-brand {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+  }
+  .navbar-fleet .navbar-brand span {
+    color: var(--accent);
+  }
+  .navbar-fleet .nav-link {
+    color: rgba(255, 255, 255, 0.75);
+    font-weight: 500;
+    font-size: 0.95rem;
+  }
+  .navbar-fleet .nav-link:hover {
+    color: #ffffff;
+  }
+  .navbar-fleet .btn-nav-cta {
+    background-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 0.45rem 1.1rem;
+  }
+  .navbar-fleet .btn-nav-cta:hover {
+    background-color: #3a53d0;
+    color: #fff;
+  }
+
+  /* Hero */
+  .pricing-hero {
+    padding: 4.5rem 1rem 2.5rem;
+    text-align: center;
+  }
+  .pricing-hero h1 {
+    font-weight: 800;
+    font-size: 2.5rem;
+    letter-spacing: -0.03em;
+  }
+  .pricing-hero p {
+    font-size: 1.1rem;
+    color: #6c757d;
+    max-width: 560px;
+    margin: 0.75rem auto 0;
+  }
+
+  /* Cards */
+  .pricing-section {
+    padding-bottom: 4rem;
+  }
+  .price-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 4px 14px rgba(20, 20, 43, 0.05);
+    padding: 2.25rem 2rem;
+    height: 100%;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+  }
+  .price-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(20, 20, 43, 0.09);
+  }
+  .price-card.featured {
+    border: 2px solid var(--accent);
+    box-shadow: 0 14px 32px rgba(67, 97, 238, 0.16);
+  }
+  .badge-best-value {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--accent);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .plan-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+  .plan-price {
+    font-size: 2.6rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #14142b;
+    line-height: 1;
+  }
+  .plan-price small {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #6c757d;
+  }
+  .plan-subtext {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.35rem;
+    margin-bottom: 1.5rem;
+  }
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2rem 0;
+  }
+  .feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 0.93rem;
+    margin-bottom: 0.75rem;
+    color: #495057;
+  }
+  .feature-list li svg {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    color: #2ecc71;
+  }
+  .feature-list li.muted {
+    color: #adb5bd;
+  }
+  .feature-list li.muted svg {
+    color: #adb5bd;
+  }
+  .btn-plan {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    font-size: 0.95rem;
+  }
+  .btn-plan-primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+  }
+  .btn-plan-primary:hover {
+    background-color: #3a53d0;
+    border-color: #3a53d0;
+  }
+  .btn-plan-outline {
+    background-color: #ffffff;
+    border: 1.5px solid #d8dbe3;
+    color: #14142b;
+  }
+  .btn-plan-outline:hover {
+    background-color: #f8f9fb;
+    border-color: #c1c5d0;
+  }
+
+  /* "Get Started" attention pulse — glowing border ring + slight scale-up */
+  @keyframes highlight-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0.55); transform: scale(1); }
+    50%  { box-shadow: 0 0 0 14px rgba(67, 97, 238, 0); transform: scale(1.025); }
+    100% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0); transform: scale(1); }
+  }
+  .highlight-pulse {
+    animation: highlight-pulse 0.9s ease-in-out 2;
+    border-color: var(--accent) !important;
+  }
+
+  /* Trust badges */
+  .trust-strip {
+    background: #ffffff;
+    border-top: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef;
+    padding: 2rem 1rem;
+  }
+  .trust-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #495057;
+  }
+  .trust-item svg {
+    color: var(--accent);
+  }
+
+  /* FAQ */
+  .faq-section {
+    padding: 4rem 1rem;
+  }
+  .faq-section h2 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .accordion-item {
+    border: 1px solid #e9ecef;
+    border-radius: 10px !important;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+  }
+  .accordion-button {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .accordion-button:not(.collapsed) {
+    background-color: #eef1ff;
+    color: var(--accent);
+  }
+  .accordion-button:focus {
+    box-shadow: none;
+  }
+
+  /* Footer */
+  .footer-fleet {
+    background-color: var(--navy);
+    color: rgba(255, 255, 255, 0.65);
+    padding: 2rem 1rem;
+    font-size: 0.85rem;
+  }
+  .footer-fleet a {
+    color: rgba(255, 255, 255, 0.75);
+    text-decoration: none;
+  }
+  .footer-fleet a:hover {
+    color: #ffffff;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-fleet py-3">
+  <div class="container">
+    <a class="navbar-brand" href="/">Fleet<span>Safety</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-3">
+        <li class="nav-item"><a class="btn btn-nav-cta" id="getStartedBtn" href="#pricing-section">Get Started</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="pricing-hero">
+  <h1>Simple, transparent pricing</h1>
+  <p>Automate DOT compliance for your fleet. No hidden fees, cancel anytime.</p>
+</header>
+
+<!-- Pricing Cards -->
+<section class="pricing-section" id="pricing-section">
+  <div class="container">
+    <div class="row g-4 justify-content-center">
+
+      <!-- Monthly -->
+      <div class="col-lg-4 col-md-6">
+        <div class="price-card">
+          <div class="plan-name">Monthly</div>
+          <div class="plan-price">$49.67 <small>/ month</small></div>
+          <div class="plan-subtext">Billed monthly. Cancel anytime.</div>
+          <ul class="feature-list">
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              Automated SMS &amp; email alerts
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              AI document extraction
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              Secure cloud storage
+            </li>
+          </ul>
+          <a href="mailto:tryfleetsafety@gmail.com?subject=Fleet%20Safety%20Monthly%20Plan" class="btn btn-plan btn-plan-outline">Get Started</a>
+        </div>
+      </div>
+
+      <!-- Annual - Best Value -->
+      <div class="col-lg-4 col-md-6">
+        <div class="price-card featured">
+          <span class="badge-best-value">Best Value</span>
+          <div class="plan-name">Annual</div>
+          <div class="plan-price">$129.37 <small>/ year</small></div>
+          <div class="plan-subtext">Just $10.78/mo — billed annually.</div>
+          <ul class="feature-list">
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              Everything in Monthly
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              Massive yearly savings
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              Priority support
+            </li>
+          </ul>
+          <a href="mailto:tryfleetsafety@gmail.com?subject=Fleet%20Safety%20Annual%20Plan" class="btn btn-plan btn-plan-primary text-white">Get Started</a>
+        </div>
+      </div>
+
+      <!-- Lifetime Deal -->
+      <div class="col-lg-4 col-md-6">
+        <div class="price-card">
+          <div class="plan-name">Lifetime Deal</div>
+          <div class="plan-price">$199 <small>one-time</small></div>
+          <div class="plan-subtext">Pay once, use forever.</div>
+          <ul class="feature-list">
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              All core features
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              No recurring charges, ever
+            </li>
+            <li class="muted">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.431a1.5 1.5 0 0 1 2.117 2.127l-9.75 12.5-.007.008-.005.005-.001.002-.001.001-.007.006-.007.005a.998.998 0 0 1-1.2-.01l-4.5-4.001a1.5 1.5 0 0 1 1.994-2.242l3.283 2.926 8.912-11.264.02-.022a1.5 1.5 0 0 1 .152-.041z"/></svg>
+              Capped at 50 scans/mo (Fair Use)
+            </li>
+          </ul>
+          <a href="mailto:tryfleetsafety@gmail.com?subject=Fleet%20Safety%20Lifetime%20Deal" class="btn btn-plan btn-plan-outline">Buy Lifetime</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Trust Badges -->
+<section class="trust-strip">
+  <div class="container">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="trust-item">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.531 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.775 11.775 0 0 1-2.517 2.453 7.159 7.159 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7.158 7.158 0 0 1-1.048-.625 11.777 11.777 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 62.456 62.456 0 0 1 5.072.56z"/></svg>
+          256-bit TLS encryption in transit
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="trust-item">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5.002 5.002 0 0 1 13 6c0 .88.32 4.2 1.22 6z"/></svg>
+          Built for DOT/FMCSA recordkeeping
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="trust-item">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M6.5 7.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm5 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM8 13c2.5 0 3.5-1.5 3.5-1.5S10.5 10 8 10s-3.5 1.5-3.5 1.5S5.5 13 8 13z"/></svg>
+          Cancel anytime, no contracts
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <h2>Frequently asked questions</h2>
+        <div class="accordion" id="pricingFaq">
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                Can I switch plans later?
+              </button>
+            </h2>
+            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+              <div class="accordion-body">
+                Yes. You can upgrade or downgrade between Monthly and Annual at any time from your account settings. Changes are prorated automatically.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                What counts as a "document scan" on the Lifetime plan?
+              </button>
+            </h2>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+              <div class="accordion-body">
+                Each file processed through our AI document extraction (e.g. a driver log, medical card, or inspection report) counts as one scan. The Lifetime plan includes 50 scans per month under our Fair Use Policy; Monthly and Annual plans are unlimited.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                Is there a free trial?
+              </button>
+            </h2>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+              <div class="accordion-body">
+                We don't currently offer a free trial, but Monthly plans can be cancelled anytime with no long-term commitment.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                What payment methods do you accept?
+              </button>
+            </h2>
+            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+              <div class="accordion-body">
+                We accept all major credit and debit cards via Stripe, our secure payment processor.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer-fleet">
+  <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+    <div>&copy; 2026 Fleet Safety. All rights reserved.</div>
+    <div class="d-flex gap-3">
+      <a href="/tos">Terms of Service</a>
+      <a href="/privacy">Privacy Policy</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  document.getElementById('getStartedBtn').addEventListener('click', function (e) {
+    e.preventDefault();
+    var section = document.getElementById('pricing-section');
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Let the smooth scroll mostly finish, then pulse the plan cards.
+    setTimeout(function () {
+      section.querySelectorAll('.price-card').forEach(function (card) {
+        card.classList.remove('highlight-pulse');
+        void card.offsetWidth; // restart the animation on repeat clicks
+        card.classList.add('highlight-pulse');
+        card.addEventListener('animationend', function () {
+          card.classList.remove('highlight-pulse');
+        }, { once: true });
+      });
+    }, 450);
+  });
+</script>
+</body>
+</html>

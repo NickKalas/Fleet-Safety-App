@@ -329,6 +329,7 @@
         </div>
         <div class="card-body">
             <form method="POST" action="/admin" class="row g-3 align-items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="col-md-4">
                     <label class="form-label fw-semibold small" for="company_name">
                         Company Name <span class="text-danger">*</span>
@@ -400,7 +401,7 @@
             {% if magic_link %}
             <div class="alert alert-success mt-3 mb-0">
                 <div class="fw-semibold mb-1">
-                    <i class="bi bi-check-circle-fill me-1"></i> Client created! Send this link:
+                    <i class="bi bi-check-circle-fill me-1"></i> Upload link ready — send this to the client:
                 </div>
                 <a href="{{ magic_link }}" target="_blank" class="text-break small">{{ magic_link }}</a>
             </div>
@@ -539,13 +540,25 @@
                                 /upload/{{ client['uuid'][:8] }}...
                             </a>
                         </div>
-                        <div class="ms-auto">
+                        <div class="ms-auto d-flex gap-2">
+                            <form
+                                method="POST"
+                                action="/admin/reset-link/{{ client['uuid'] }}"
+                                onsubmit="return confirm('Reset the upload link? The old link will stop working immediately.');"
+                                class="d-inline"
+                            >
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-arrow-repeat"></i> Reset Link
+                                </button>
+                            </form>
                             <form
                                 method="POST"
                                 action="/admin/delete/{{ client['uuid'] }}"
                                 onsubmit="return confirm('Delete this client and ALL their documents? This cannot be undone.');"
                                 class="d-inline"
                             >
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">
                                     <i class="bi bi-trash3"></i> Delete Client
                                 </button>

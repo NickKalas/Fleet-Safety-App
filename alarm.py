@@ -9,14 +9,17 @@ notify clients whose DOT documents are expiring within 30 days.
 
 IMPORTANT SCHEDULING NOTE (compliance):
   US law (TCPA) forbids texting people outside 8 AM - 9 PM in THEIR local
-  time. Schedule this to run mid-morning US time. Example (runs 9:00 AM
-  US Central = 14:00 UTC):
-      0 14 * * *  /path/to/venv/bin/python /path/to/alarm.py >> alarm.log 2>&1
+  time. We do not store each client's timezone, so run at a time that is
+  inside 8 AM - 9 PM in ALL four continental US zones. 11:00 AM Central
+  works (12 PM Eastern / 10 AM Mountain / 9 AM Pacific). Example
+  (16:00 UTC while US Central is on daylight time):
+      0 16 * * *  /path/to/venv/bin/python /path/to/alarm.py >> alarm.log 2>&1
 """
 
 import os
 import sqlite3
 import smtplib
+from html import escape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import date, timedelta, datetime
@@ -115,6 +118,14 @@ def send_email_notification(to_email, driver_name, doc_type, expiration_date, co
             f"- Fleet Safety Compliance Team"
         )
 
+        # FIX: driver_name / doc_type come from client-supplied documents (via
+        # AI extraction), so escape everything interpolated into HTML — a
+        # malicious upload must not be able to inject markup into our emails.
+        h_company = escape(str(company_name))
+        h_driver = escape(str(driver_name))
+        h_doc = escape(str(doc_type))
+        h_exp = escape(str(expiration_date))
+
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
@@ -123,21 +134,21 @@ def send_email_notification(to_email, driver_name, doc_type, expiration_date, co
             </div>
             <div style="background: #fff; border: 1px solid #dee2e6; border-top: none;
                         padding: 30px; border-radius: 0 0 8px 8px;">
-                <p>Hello <strong>{company_name}</strong>,</p>
+                <p>Hello <strong>{h_company}</strong>,</p>
                 <p>The following DOT compliance document is expiring within
                    <strong>{ALERT_DAYS} days</strong> and requires your attention:</p>
                 <table style="width:100%; border-collapse:collapse; margin: 20px 0;">
                     <tr style="background:#f8f9fa;">
                         <td style="padding:10px 14px; font-weight:bold; width:40%;">Driver Name</td>
-                        <td style="padding:10px 14px;">{driver_name}</td>
+                        <td style="padding:10px 14px;">{h_driver}</td>
                     </tr>
                     <tr>
                         <td style="padding:10px 14px; font-weight:bold;">Document Type</td>
-                        <td style="padding:10px 14px;">{doc_type}</td>
+                        <td style="padding:10px 14px;">{h_doc}</td>
                     </tr>
                     <tr style="background:#f8f9fa;">
                         <td style="padding:10px 14px; font-weight:bold;">Expiration Date</td>
-                        <td style="padding:10px 14px; color:#dc3545; font-weight:bold;">{expiration_date}</td>
+                        <td style="padding:10px 14px; color:#dc3545; font-weight:bold;">{h_exp}</td>
                     </tr>
                 </table>
                 <p style="background:#fff3cd; border:1px solid #ffc107; border-radius:6px;
@@ -292,6 +303,13 @@ def run_alarm():
             channel = 'sms'
             success = send_sms_notification(
                 phone_number, driver_name, doc_type, expiration_date, company_name)
+            if not success and email:
+                # FIX: a failed SMS used to just fail again every day.
+                # Fall back to email so the client still gets warned.
+                print(f"     SMS failed — falling back to email for {company_name}.")
+                channel = 'email'
+                success = send_email_notification(
+                    email, driver_name, doc_type, expiration_date, company_name)
         elif email:
             channel = 'email'
             success = send_email_notification(
