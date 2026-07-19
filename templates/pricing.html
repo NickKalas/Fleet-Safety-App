@@ -466,5 +466,21 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  document.getElementById('getStartedBtn').addEventListener('click', function (e) {
+    e.preventDefault(); // This stops the browser from doing a sudden jump
+    var section = document.getElementById('pricing-section');
+    
+    // Immediately pulse the plan cards without scrolling
+    section.querySelectorAll('.price-card').forEach(function (card) {
+      card.classList.remove('highlight-pulse');
+      void card.offsetWidth; // restart the animation on repeat clicks
+      card.classList.add('highlight-pulse');
+      card.addEventListener('animationend', function () {
+        card.classList.remove('highlight-pulse');
+      }, { once: true });
+    });
+  });
+</script>
 </body>
 </html>
