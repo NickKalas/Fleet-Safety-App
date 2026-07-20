@@ -389,7 +389,10 @@ def _build_extraction_prompt(document_type=None):
 def _ask_groq_with_text(text_content, document_type=None):
     prompt = _build_extraction_prompt(document_type)
     response = get_groq().chat.completions.create(
-        model='llama3-8b-8192',
+        # FIX: 'llama3-8b-8192' was decommissioned by Groq (that was the
+        # "404 Not Found" in the logs). 'openai/gpt-oss-20b' is a current,
+        # fast text model that supports JSON mode.
+        model='openai/gpt-oss-20b',
         messages=[
             {"role": "system", "content": (
                 "You extract structured data from documents. "
@@ -407,7 +410,10 @@ def _ask_groq_with_image(file_bytes, mime_type, document_type=None):
     b64_image = base64.b64encode(file_bytes).decode('utf-8')
     data_url = f"data:{mime_type};base64,{b64_image}"
     response = get_groq().chat.completions.create(
-        model='meta-llama/llama-4-scout-17b-16e-instruct',
+        # FIX: 'meta-llama/llama-4-scout-17b-16e-instruct' was deprecated by
+        # Groq. 'qwen/qwen3.6-27b' is Groq's current multimodal (image) model
+        # and supports JSON mode.
+        model='qwen/qwen3.6-27b',
         messages=[
             {"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": data_url}},
